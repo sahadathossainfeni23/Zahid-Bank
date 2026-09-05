@@ -962,7 +962,8 @@ main#viewport{
 <div class="sheet-overlay" id="sheet-add-account-overlay">
   <form class="sheet" id="form-account">
     <div class="sheet-handle"></div>
-    <h3>নতুন অ্যাকাউন্ট</h3>
+    <h3 id="account-form-title">নতুন অ্যাকাউন্ট</h3>
+    <input type="hidden" name="id" />
     <label>নম্বর
       <input required name="number" inputmode="numeric" placeholder="01XXXXXXXXX" />
     </label>
@@ -973,13 +974,14 @@ main#viewport{
       </div>
       <input type="hidden" name="provider" value="bkash" />
     </label>
-    <label>শুরুর ব্যালেন্স (ঐচ্ছিক)
+    <label id="account-opening-label">শুরুর ব্যালেন্স (ঐচ্ছিক)
       <input name="opening" type="number" min="0" step="1" placeholder="0" />
     </label>
     <div class="sheet-actions">
       <button type="button" class="btn-ghost" data-close>বাতিল</button>
-      <button type="submit" class="btn-primary">যোগ করো</button>
+      <button type="submit" class="btn-primary" id="account-form-submit">যোগ করো</button>
     </div>
+    <button type="button" class="btn-delete" id="account-delete" hidden>এই অ্যাকাউন্ট ডিলিট করো</button>
   </form>
 </div>
 
@@ -1487,6 +1489,7 @@ document.querySelectorAll("[data-open]").forEach(btn=>{
     if(target==="sheet-deposit") prepDepositForm();
     if(target==="sheet-expense") prepExpenseForm();
     if(target==="sheet-add-profit") prepProfitForm();
+    if(target==="sheet-add-account") prepAccountForm();
   });
 });
 document.querySelectorAll("[data-close]").forEach(btn=>{
@@ -1624,22 +1627,44 @@ document.getElementById("form-profit").addEventListener("submit", async function
   showToast("লাভ যোগ হয়েছে");
 });
 
+function prepAccountForm(editAccount){
+  const form = document.getElementById("form-account");
+  form.reset();
+  form.querySelector('[name="id"]').value = editAccount ? editAccount.id : "";
+  const provider = editAccount ? editAccount.provider : "bkash";
+  document.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active", b.dataset.value===provider));
+  document.querySelector('#form-account [name="provider"]').value = provider;
+  document.getElementById("account-form-title").textContent = editAccount ? "অ্যাকাউন্ট এডিট করো" : "নতুন অ্যাকাউন্ট";
+  document.getElementById("account-form-submit").textContent = editAccount ? "সেভ করো" : "যোগ করো";
+  document.getElementById("account-opening-label").style.display = editAccount ? "none" : "";
+  document.getElementById("account-delete").hidden = !editAccount;
+  if(editAccount){
+    form.querySelector('[name="number"]').value = editAccount.number;
+  }
+}
+
 document.getElementById("form-account").addEventListener("submit", async function(ev){
   ev.preventDefault();
   const fd = new FormData(this);
-  state.accounts.push({
-    id: uid(),
-    number: fd.get("number").trim(),
-    provider: fd.get("provider"),
-    opening: Number(fd.get("opening"))||0,
-  });
-  this.reset();
-  document.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active", b.dataset.value==="bkash"));
-  document.querySelector('#form-account [name="provider"]').value = "bkash";
+  const id = fd.get("id");
+  if(id){
+    const acc = state.accounts.find(a=>a.id===id);
+    if(acc){
+      acc.number = fd.get("number").trim();
+      acc.provider = fd.get("provider");
+    }
+  } else {
+    state.accounts.push({
+      id: uid(),
+      number: fd.get("number").trim(),
+      provider: fd.get("provider"),
+      opening: Number(fd.get("opening"))||0,
+    });
+  }
   closeAllSheets();
   renderAll();
   await saveRemote();
-  showToast("নতুন অ্যাকাউন্ট যোগ হয়েছে");
+  showToast(id ? "অ্যাকাউন্ট আপডেট হয়েছে" : "নতুন অ্যাকাউন্ট যোগ হয়েছে");
 });
 
 document.querySelectorAll(".seg-btn").forEach(btn=>{
@@ -1649,6 +1674,25 @@ document.querySelectorAll(".seg-btn").forEach(btn=>{
     document.querySelector('#form-account [name="provider"]').value = this.dataset.value;
   });
 });
+
+document.getElementById("account-delete").addEventListener("click", function(){
+  const id = document.querySelector('#form-account [name="id"]').value;
+  if(!id) return;
+  const hasEntries = state.entries.some(e=>e.accountId===id);
+  const msg = hasEntries
+    ? "এই অ্যাকাউন্টের সাথে যুক্ত সব এন্ট্রিও ডিলিট হয়ে যাবে। ডিলিট করবে?"
+    : "এই অ্যাকাউন্ট ডিলিট করবে?";
+  if(confirm(msg)) deleteAccount(id);
+});
+
+async function deleteAccount(id){
+  state.accounts = state.accounts.filter(a=>a.id!==id);
+  state.entries = state.entries.filter(e=>e.accountId!==id);
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("অ্যাকাউন্ট ডিলিট হয়েছে");
+}
 
 function upsertEntry(entry){
   const idx = state.entries.findIndex(e=>e.id===entry.id);
@@ -1721,12 +1765,29 @@ function openAccountDetail(accountId){
       <div class="detail-stat"><span>মোট ডিপোজিট</span><b>৳${fmtMoney(deposited + (Number(acc.opening)||0))}</b></div>
       <div class="detail-stat"><span>মোট পাঠানো</span><b>৳${fmtMoney(sent)}</b></div>
     </div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" id="account-detail-edit">এডিট করো</button>
+      <button type="button" class="btn-ghost" id="account-detail-delete" style="color:var(--danger); border-color:var(--danger);">ডিলিট করো</button>
+    </div>
     <div class="section-row"><h2>এই অ্যাকাউন্টের হিস্টোরি</h2></div>
     <div class="entries-list" id="account-detail-entries"></div>
   `;
   const list = sheet.querySelector("#account-detail-entries");
   if(accEntries.length===0) list.innerHTML = `<div class="empty-state">কোনো এন্ট্রি নেই</div>`;
   for(const e of accEntries) list.appendChild(entryRow(e));
+
+  sheet.querySelector("#account-detail-edit").addEventListener("click", ()=>{
+    closeAllSheets();
+    prepAccountForm(acc);
+    document.getElementById("sheet-add-account-overlay").classList.add("open");
+  });
+  sheet.querySelector("#account-detail-delete").addEventListener("click", ()=>{
+    const hasEntries = state.entries.some(e=>e.accountId===acc.id);
+    const msg = hasEntries
+      ? "এই অ্যাকাউন্টের সাথে যুক্ত সব এন্ট্রিও ডিলিট হয়ে যাবে। ডিলিট করবে?"
+      : "এই অ্যাকাউন্ট ডিলিট করবে?";
+    if(confirm(msg)) deleteAccount(acc.id);
+  });
 
   closeAllSheets();
   document.getElementById("sheet-account-detail-overlay").classList.add("open");
