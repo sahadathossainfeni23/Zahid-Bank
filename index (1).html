@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0B1F1C" />
+<title>হিসাব খাতা — bKash/Nagad ট্র্যাকার</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   হিসাব খাতা — design tokens
+   Concept: a digital "hishab-khata" (ledger notebook) for a
+   mobile-money agent — dark ink-green ledger paper, gold for
+   money figures, functional pink/orange tags for bKash/Nagad.
+   ============================================================ */
+
+:root{
+  --bg: #0A1917;
+  --bg-elevated: #0F231F;
+  --surface: #122C27;
+  --surface-2: #1B3A33;
+  --surface-3: #234840;
+  --border: rgba(243,239,228,0.09);
+  --border-strong: rgba(243,239,228,0.16);
+
+  --ink: #F3EFE4;
+  --ink-dim: #9FBAB1;
+  --ink-faint: #6E8B83;
+
+  --gold: #D9AE5D;
+  --gold-bright: #EFCB86;
+
+  --bkash: #E0186C;
+  --bkash-bg: rgba(224,24,108,0.14);
+  --nagad: #F4762D;
+  --nagad-bg: rgba(244,118,45,0.14);
+
+  --success: #45BF8E;
+  --success-bg: rgba(69,191,142,0.14);
+  --danger: #E5584D;
+  --danger-bg: rgba(229,88,77,0.14);
+
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 24px;
+
+  --font-display: "Fraunces", serif;
+  --font-body: "Hind Siliguri", "Inter", sans-serif;
+
+  --shadow-card: 0 8px 24px rgba(0,0,0,0.28);
+  --shadow-sheet: 0 -12px 40px rgba(0,0,0,0.45);
+}
+
+*{ box-sizing: border-box; }
+
+html,body{
+  margin:0; padding:0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body{
+  min-height: 100dvh;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(217,174,93,0.08), transparent 60%);
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+#app{
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-bottom: 96px;
+}
+
+/* ---------- Topbar ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 22px 20px 10px;
+}
+.topbar-title{
+  display:flex; align-items:center; gap:8px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.brand-mark{
+  display:inline-flex; align-items:center; justify-content:center;
+  width: 30px; height:30px;
+  border-radius: 9px;
+  background: linear-gradient(155deg, var(--gold-bright), var(--gold));
+  color: #1A1206;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+}
+.topbar-right{
+  display:flex; align-items:center; gap:12px;
+}
+.topbar-date{
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+.lock-btn{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width:32px; height:32px;
+  border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  color: var(--ink-faint);
+  cursor:pointer;
+}
+.lock-btn svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+.app-hidden{ display:none !important; }
+
+.sync-note{
+  font-size:12px;
+  color: var(--ink-faint);
+  text-align:center;
+  margin-top:14px;
+  line-height:1.6;
+  padding: 0 10px;
+}
+
+/* ---------- Views ---------- */
+main#viewport{
+  flex:1;
+  padding: 4px 20px 24px;
+}
+.view{
+  display:none;
+  animation: viewIn 320ms cubic-bezier(.22,.9,.32,1);
+}
+.view.active{ display:block; }
+
+@keyframes viewIn{
+  from{ opacity:0; transform: translateY(8px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+
+.view-title{
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  margin: 12px 0 18px;
+}
+
+/* ---------- Hero balance card ---------- */
+.hero-card{
+  background: linear-gradient(165deg, var(--surface) 0%, var(--bg-elevated) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 26px 24px 22px;
+  margin-top: 10px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+.hero-card::before{
+  content:"";
+  position:absolute; inset:0;
+  background: radial-gradient(circle at 85% -10%, rgba(217,174,93,0.16), transparent 55%);
+  pointer-events:none;
+}
+.hero-label{
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin-bottom: 6px;
+}
+.hero-amount{
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 44px;
+  line-height:1.1;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+.hero-amount .taka{ font-size: 30px; margin-right:4px; opacity:0.85; }
+.hero-split{
+  display:flex; gap:20px; margin-top:18px;
+  font-size: 13px; color: var(--ink-dim);
+}
+.split-item{ display:flex; align-items:center; gap:6px; }
+.split-item b{ color: var(--ink); margin-left:4px; font-variant-numeric: tabular-nums; }
+.dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+.dot-bkash{ background: var(--bkash); }
+.dot-nagad{ background: var(--nagad); }
+
+/* ---------- Section header row ---------- */
+.section-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-top: 24px; margin-bottom: 10px;
+}
+.section-row h2{
+  font-size: 15px; font-weight:600; margin:0; color: var(--ink);
+}
+.link-btn{
+  background:none; border:none; color: var(--gold);
+  font-size: 13px; font-family: var(--font-body); font-weight:600;
+  padding:4px; cursor:pointer;
+}
+
+/* ---------- Account cards ---------- */
+.accounts-list{ display:flex; flex-direction:column; gap:10px; }
+.account-card{
+  display:flex; align-items:center; justify-content:space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 14px 16px;
+  cursor:pointer;
+  transition: border-color 160ms ease, transform 120ms ease;
+}
+.account-card:active{ transform: scale(0.98); }
+.account-card:hover{ border-color: var(--border-strong); }
+.account-left{ display:flex; align-items:center; gap:12px; }
+.provider-badge{
+  width:38px; height:38px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; letter-spacing:0.3px;
+  flex-shrink:0;
+}
+.provider-badge.bkash{ background: var(--bkash-bg); color: var(--bkash); }
+.provider-badge.nagad{ background: var(--nagad-bg); color: var(--nagad); }
+.account-number{ font-size:14.5px; font-weight:600; font-variant-numeric: tabular-nums; }
+.account-provider{ font-size:12px; color: var(--ink-faint); margin-top:2px; }
+.account-balance{ font-size:15px; font-weight:600; font-variant-numeric: tabular-nums; color: var(--gold-bright); }
+
+.empty-state{
+  text-align:center; padding: 40px 20px; color: var(--ink-faint); font-size:14px;
+}
+
+/* ---------- Entries list ---------- */
+.entries-list{ display:flex; flex-direction:column; gap:8px; }
+.entry-row{
+  display:flex; align-items:center; gap:12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  cursor:pointer;
+  transition: transform 120ms ease;
+}
+.entry-row:active{ transform: scale(0.98); }
+.entry-icon{
+  width:34px; height:34px; border-radius:10px;
+  flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:700;
+}
+.entry-icon.send{ background: rgba(217,174,93,0.14); color: var(--gold); }
+.entry-icon.deposit{ background: var(--success-bg); color: var(--success); }
+.entry-icon.expense{ background: var(--danger-bg); color: var(--danger); }
+.entry-icon.profit{ background: rgba(217,174,93,0.2); color: var(--gold-bright); }
+.entry-mid{ flex:1; min-width:0; }
+.entry-title{ font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.entry-sub{ font-size:12px; color: var(--ink-faint); margin-top:2px; }
+.entry-amount{ font-size:14.5px; font-weight:600; font-variant-numeric: tabular-nums; white-space:nowrap; }
+.entry-amount.neg{ color: var(--danger); }
+.entry-amount.pos{ color: var(--success); }
+
+/* ---------- Filter chips ---------- */
+.filter-row{
+  display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px;
+  scrollbar-width:none;
+}
+.filter-row::-webkit-scrollbar{ display:none; }
+.chip{
+  flex-shrink:0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-dim);
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight:600;
+  cursor:pointer;
+  transition: all 160ms ease;
+}
+.chip.active{
+  background: var(--gold);
+  color: #1A1206;
+  border-color: var(--gold);
+}
+
+.month-select{
+  width:100%;
+  background: var(--surface);
+  border:1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight:600;
+  padding: 12px 14px;
+  border-radius: var(--radius-m);
+  margin-bottom: 16px;
+  appearance:none;
+}
+
+/* ---------- Profit card ---------- */
+.profit-card{
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 20px 20px 16px;
+}
+.profit-row{
+  display:flex; justify-content:space-between; align-items:center;
+  padding: 10px 0;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+.profit-row b{ font-variant-numeric: tabular-nums; font-size:15px; }
+.profit-row b.pos{ color: var(--success); }
+.profit-row b.neg{ color: var(--danger); }
+.profit-divider{ height:1px; background: var(--border); margin: 6px 0; }
+.profit-net{ padding-top:12px; }
+.profit-net span{ color: var(--ink); font-weight:600; font-size:15px; }
+.profit-net b{ font-family: var(--font-display); font-size:24px; color: var(--gold-bright); }
+
+.btn-secondary.full{
+  width:100%; margin-top:16px;
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  color: var(--gold);
+  padding: 14px;
+  border-radius: var(--radius-m);
+  font-family: var(--font-body);
+  font-weight:600;
+  font-size:14px;
+  cursor:pointer;
+}
+
+/* ---------- FAB ---------- */
+.fab{
+  position: fixed;
+  bottom: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58px; height:58px;
+  border-radius: 50%;
+  background: linear-gradient(155deg, var(--gold-bright), var(--gold));
+  border: none;
+  color: #1A1206;
+  font-size: 30px;
+  font-weight:400;
+  box-shadow: 0 10px 26px rgba(217,174,93,0.35);
+  cursor:pointer;
+  z-index: 40;
+  display:flex; align-items:center; justify-content:center;
+  transition: transform 140ms ease;
+}
+.fab:active{ transform: translateX(-50%) scale(0.92); }
+
+/* ---------- Bottom nav ---------- */
+.bottom-nav{
+  position: fixed;
+  bottom:0; left:0; right:0;
+  max-width:480px; margin:0 auto;
+  background: rgba(15,35,31,0.92);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  display:flex;
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
+  z-index: 30;
+}
+.nav-item{
+  flex:1;
+  background:none; border:none;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding: 6px 0;
+  color: var(--ink-faint);
+  font-family: var(--font-body);
+  font-size: 11px;
+  cursor:pointer;
+  transition: color 160ms ease;
+}
+.nav-item svg{
+  width:22px; height:22px;
+  fill:none; stroke: currentColor; stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+.nav-item.active{ color: var(--gold-bright); }
+
+/* ---------- Sheets (bottom modals) ---------- */
+.sheet-overlay{
+  position: fixed; inset:0;
+  background: rgba(5,12,10,0.6);
+  display:flex; align-items:flex-end; justify-content:center;
+  opacity:0; pointer-events:none;
+  transition: opacity 220ms ease;
+  z-index: 50;
+}
+.sheet-overlay.open{ opacity:1; pointer-events:auto; }
+.sheet{
+  width:100%; max-width:480px;
+  background: var(--bg-elevated);
+  border-radius: 26px 26px 0 0;
+  padding: 10px 22px calc(26px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-sheet);
+  transform: translateY(100%);
+  transition: transform 320ms cubic-bezier(.22,.9,.32,1);
+  max-height: 88dvh;
+  overflow-y:auto;
+}
+.sheet-overlay.open .sheet{ transform: translateY(0); }
+.sheet-handle{
+  width:38px; height:4px; border-radius:2px;
+  background: var(--border-strong);
+  margin: 8px auto 14px;
+}
+.sheet h3{
+  font-family: var(--font-display);
+  font-size:20px; font-weight:600; margin: 0 0 16px;
+}
+.sheet label{
+  display:block;
+  font-size:13px;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+  font-weight:600;
+}
+.sheet input, .sheet select{
+  display:block; width:100%; margin-top:6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size:15px;
+  font-weight:500;
+  padding: 12px 14px;
+  border-radius: var(--radius-s);
+  appearance:none;
+}
+.sheet input:focus, .sheet select:focus{
+  outline:2px solid var(--gold);
+  outline-offset:1px;
+}
+.sheet-actions{
+  display:flex; gap:10px; margin-top: 6px;
+}
+.btn-primary, .btn-ghost{
+  flex:1;
+  padding: 13px;
+  border-radius: var(--radius-s);
+  font-family: var(--font-body);
+  font-weight:700;
+  font-size: 14.5px;
+  cursor:pointer;
+  border:none;
+}
+.btn-primary{ background: var(--gold); color:#1A1206; }
+.btn-primary:active{ transform: scale(0.98); }
+.btn-ghost{ background: var(--surface-2); color: var(--ink-dim); border:1px solid var(--border); }
+.btn-delete{
+  width:100%; margin-top:14px;
+  background:none; border:1px solid var(--danger);
+  color: var(--danger);
+  padding:12px; border-radius: var(--radius-s);
+  font-family: var(--font-body); font-weight:600; font-size:13.5px;
+  cursor:pointer;
+}
+
+/* action sheet specific */
+.action-sheet{ padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+.action-option{
+  width:100%;
+  display:flex; align-items:center; gap:14px;
+  background:none; border:none;
+  padding: 14px 4px;
+  text-align:left;
+  cursor:pointer;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.action-option:last-of-type{ border-bottom:none; }
+.action-option b{ display:block; font-size:15px; }
+.action-option small{ display:block; font-size:12px; color: var(--ink-faint); margin-top:2px; }
+.action-icon{
+  width:42px; height:42px; border-radius:12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:19px; font-weight:700; flex-shrink:0;
+}
+.icon-send{ background: rgba(217,174,93,0.16); color: var(--gold); }
+.icon-deposit{ background: var(--success-bg); color: var(--success); }
+.icon-expense{ background: var(--danger-bg); color: var(--danger); }
+.sheet-cancel{
+  width:100%; margin-top:8px;
+  background: var(--surface-2);
+  border:none; color: var(--ink-dim);
+  padding:14px; border-radius: var(--radius-s);
+  font-family: var(--font-body); font-weight:600; font-size:14px;
+  cursor:pointer;
+}
+
+/* segmented control (provider picker) */
+.seg-control{
+  display:flex; gap:8px; margin-top:6px;
+}
+.seg-btn{
+  flex:1;
+  padding:11px;
+  border-radius: var(--radius-s);
+  border:1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-weight:700;
+  font-size:14px;
+  cursor:pointer;
+}
+.seg-btn.active[data-value="bkash"]{ background: var(--bkash-bg); color: var(--bkash); border-color: var(--bkash); }
+.seg-btn.active[data-value="nagad"]{ background: var(--nagad-bg); color: var(--nagad); border-color: var(--nagad); }
+
+/* ---------- Toast ---------- */
+.toast{
+  position: fixed;
+  bottom: 96px; left:50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 12px 20px;
+  border-radius: 100px;
+  font-size: 13.5px;
+  font-weight:600;
+  opacity:0;
+  pointer-events:none;
+  transition: all 260ms cubic-bezier(.22,.9,.32,1);
+  z-index: 80;
+  max-width: 90%;
+  text-align:center;
+}
+.toast.show{
+  opacity:1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Account detail sheet content ---------- */
+.detail-header{ display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+.detail-balance{
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--gold-bright);
+  margin: 6px 0 18px;
+}
+.detail-stats{ display:flex; gap:10px; margin-bottom: 18px; }
+.detail-stat{
+  flex:1; background: var(--surface-2); border-radius: var(--radius-m);
+  padding: 12px; text-align:center;
+}
+.detail-stat b{ display:block; font-size:16px; margin-top:4px; font-variant-numeric: tabular-nums; }
+.detail-stat span{ font-size:11px; color: var(--ink-faint); }
+
+@media (min-width: 481px){
+  body{ background-color: #071310; }
+  #app{ box-shadow: 0 0 60px rgba(0,0,0,0.5); background: var(--bg); }
+}
+
+/* ============================================================
+   Lock screen
+   ============================================================ */
+.lock-screen{
+  position: fixed; inset:0;
+  background: var(--bg);
+  background-image: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(217,174,93,0.1), transparent 60%);
+  display:flex; align-items:center; justify-content:center;
+  z-index: 200;
+  padding: 20px;
+}
+.lock-card{
+  width:100%; max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: 34px 26px;
+  box-shadow: var(--shadow-card);
+  text-align:center;
+}
+.lock-mark{
+  width:52px; height:52px;
+  margin: 0 auto 18px;
+  border-radius: 15px;
+  background: linear-gradient(155deg, var(--gold-bright), var(--gold));
+  color:#1A1206;
+  display:flex; align-items:center; justify-content:center;
+  font-family: var(--font-display);
+  font-size: 26px; font-weight:600;
+}
+.lock-status{
+  color: var(--ink-dim);
+  font-size: 14px;
+}
+.lock-config-error{
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.7;
+  margin-top: 14px;
+}
+.lock-config-error code{
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.lock-form h2{
+  font-family: var(--font-display);
+  font-size: 21px; font-weight:600;
+  margin: 0 0 8px;
+}
+.lock-sub{
+  font-size: 13px;
+  color: var(--ink-faint);
+  margin: 0 0 20px;
+  line-height:1.6;
+}
+.lock-form input{
+  display:block; width:100%; margin-bottom:12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 20px;
+  font-weight:600;
+  text-align:center;
+  letter-spacing: 6px;
+  padding: 14px;
+  border-radius: var(--radius-s);
+}
+.lock-form input:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+.btn-primary.full{ width:100%; padding:14px; }
+.lock-error{
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 12px;
+  min-height: 18px;
+}
+.lock-card.shake{ animation: shake 380ms ease; }
+@keyframes shake{
+  10%,90%{ transform: translateX(-2px); }
+  20%,80%{ transform: translateX(4px); }
+  30%,50%,70%{ transform: translateX(-8px); }
+  40%,60%{ transform: translateX(8px); }
+}
+
+</style>
+</head>
+<body>
+
+
+<!-- ===== LOCK SCREEN ===== -->
+<div id="lockScreen" class="lock-screen">
+  <div class="lock-card">
+    <div class="lock-mark">৳</div>
+
+    <div id="lockLoading" class="lock-status">লোড হচ্ছে…</div>
+
+    <form id="form-set-pin" class="lock-form" hidden>
+      <h2>একটা PIN সেট করো</h2>
+      <p class="lock-sub">এই PIN দিয়ে যেকোনো ডিভাইস থেকে তোমার হিসাব খুলতে পারবা। ভুলে যেও না।</p>
+      <input id="setPinInput" type="password" inputmode="numeric" maxlength="6" placeholder="৪-৬ ডিজিট PIN" autocomplete="off" />
+      <input id="setPinConfirm" type="password" inputmode="numeric" maxlength="6" placeholder="আবার PIN লিখো" autocomplete="off" />
+      <button type="submit" class="btn-primary full">PIN সেট করো</button>
+      <div class="lock-error" id="setPinError"></div>
+    </form>
+
+    <form id="form-enter-pin" class="lock-form" hidden>
+      <h2>PIN দাও</h2>
+      <p class="lock-sub">তোমার হিসাব খাতা আনলক করতে PIN লিখো</p>
+      <input id="enterPinInput" type="password" inputmode="numeric" maxlength="6" placeholder="PIN" autocomplete="off" />
+      <button type="submit" class="btn-primary full">আনলক করো</button>
+      <div class="lock-error" id="enterPinError"></div>
+    </form>
+
+    <div id="lockConfigError" class="lock-status lock-config-error" hidden>
+      Supabase config বসানো হয়নি বা ভুল আছে।<br/>README.md এর "Supabase সেটআপ" অংশ অনুযায়ী <code>supabase-config.js</code> ঠিক করো।
+    </div>
+  </div>
+</div>
+
+<div id="app" class="app-hidden">
+
+  <!-- ===== HEADER ===== -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <span class="brand-mark">৳</span>
+      <span>হিসাব খাতা</span>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-date" id="todayDate"></span>
+      <button class="lock-btn" id="lockBtn" title="লক করো" aria-label="লক করো">
+        <svg viewBox="0 0 24 24"><path d="M6 10V8a6 6 0 1112 0v2M5 10h14v10H5z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== MAIN VIEWS ===== -->
+  <main id="viewport">
+
+    <!-- ---------- DASHBOARD ---------- -->
+    <section class="view active" id="view-dashboard">
+
+      <div class="hero-card">
+        <div class="hero-label">মোট হাতে আছে</div>
+        <div class="hero-amount"><span class="taka">৳</span><span id="grandTotal" class="count-up">0</span></div>
+        <div class="hero-split">
+          <div class="split-item">
+            <span class="dot dot-bkash"></span> bKash
+            <b id="totalBkash">৳0</b>
+          </div>
+          <div class="split-item">
+            <span class="dot dot-nagad"></span> Nagad
+            <b id="totalNagad">৳0</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-row">
+        <h2>অ্যাকাউন্টসমূহ</h2>
+        <button class="link-btn" data-open="sheet-add-account">+ নতুন অ্যাকাউন্ট</button>
+      </div>
+      <div id="accountsList" class="accounts-list"></div>
+
+      <div class="section-row" style="margin-top:28px;">
+        <h2>সাম্প্রতিক কার্যক্রম</h2>
+        <button class="link-btn" data-nav="history">সব দেখুন</button>
+      </div>
+      <div id="recentList" class="entries-list"></div>
+
+    </section>
+
+    <!-- ---------- HISTORY ---------- -->
+    <section class="view" id="view-history">
+      <h1 class="view-title">সব হিসাব</h1>
+
+      <div class="filter-row" id="filterChips">
+        <button class="chip active" data-filter="all">সব</button>
+        <button class="chip" data-filter="send">Send Money</button>
+        <button class="chip" data-filter="deposit">Deposit</button>
+        <button class="chip" data-filter="expense">খরচ</button>
+        <button class="chip" data-filter="profit">লাভ</button>
+      </div>
+
+      <select id="historyMonth" class="month-select"></select>
+
+      <div id="historyList" class="entries-list"></div>
+      <div class="empty-state" id="historyEmpty" hidden>
+        <p>কোনো এন্ট্রি নেই</p>
+      </div>
+    </section>
+
+    <!-- ---------- PROFIT ---------- -->
+    <section class="view" id="view-profit">
+      <h1 class="view-title">লাভ (Profit)</h1>
+
+      <select id="profitMonth" class="month-select"></select>
+
+      <div class="profit-card">
+        <div class="profit-row">
+          <span>ডিপোজিট ভিত্তিক লাভ</span>
+          <b id="profitAuto" class="pos">৳0</b>
+        </div>
+        <div class="profit-row">
+          <span>মোট ফি বাদ</span>
+          <b id="profitFee" class="neg">− ৳0</b>
+        </div>
+        <div class="profit-row">
+          <span>অতিরিক্ত যোগ করা লাভ</span>
+          <b id="profitManual" class="pos">+ ৳0</b>
+        </div>
+        <div class="profit-divider"></div>
+        <div class="profit-row profit-net">
+          <span>নেট লাভ</span>
+          <b id="profitNet">৳0</b>
+        </div>
+      </div>
+
+      <button class="btn-secondary full" data-open="sheet-add-profit">+ অতিরিক্ত লাভ যোগ করো</button>
+
+      <div class="section-row" style="margin-top:28px;">
+        <h2>এই মাসের ডিপোজিট</h2>
+      </div>
+      <div id="profitDepositList" class="entries-list"></div>
+    </section>
+
+    <!-- ---------- ACCOUNTS ---------- -->
+    <section class="view" id="view-accounts">
+      <h1 class="view-title">অ্যাকাউন্টস</h1>
+      <div id="accountsFullList" class="accounts-list"></div>
+      <button class="btn-secondary full" data-open="sheet-add-account">+ নতুন অ্যাকাউন্ট যোগ করো</button>
+
+      <div class="section-row" style="margin-top:28px;">
+        <h2>সিকিউরিটি</h2>
+      </div>
+      <button class="btn-secondary full" id="openChangePin">🔒 PIN পরিবর্তন করো</button>
+      <div class="sync-note">ডেটা Supabase এ সেভ হয় — যেকোনো ডিভাইস থেকে একই PIN দিয়ে ঢুকলে একই হিসাব দেখবে।</div>
+    </section>
+
+  </main>
+
+  <!-- ===== FAB ===== -->
+  <button id="fab" class="fab" aria-label="নতুন এন্ট্রি">+</button>
+
+  <!-- ===== BOTTOM NAV ===== -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-nav="dashboard">
+      <svg viewBox="0 0 24 24"><path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6V11h-6v9zm0-16v5h6V4h-6z"/></svg>
+      <span>ড্যাশবোর্ড</span>
+    </button>
+    <button class="nav-item" data-nav="history">
+      <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7V3z"/><path d="M13 7v6l5 3"/></svg>
+      <span>হিস্টোরি</span>
+    </button>
+    <button class="nav-item" data-nav="profit">
+      <svg viewBox="0 0 24 24"><path d="M4 20l6-6 4 4 7-9"/></svg>
+      <span>লাভ</span>
+    </button>
+    <button class="nav-item" data-nav="accounts">
+      <svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
+      <span>অ্যাকাউন্টস</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===== ACTION SHEET (+ button) ===== -->
+<div class="sheet-overlay" id="actionSheetOverlay">
+  <div class="sheet action-sheet">
+    <div class="sheet-handle"></div>
+    <button class="action-option" data-open="sheet-send">
+      <span class="action-icon icon-send">↗</span>
+      <div><b>Send Money</b><small>গ্রাহকের নম্বরে টাকা পাঠাও</small></div>
+    </button>
+    <button class="action-option" data-open="sheet-deposit">
+      <span class="action-icon icon-deposit">+</span>
+      <div><b>Deposit</b><small>নিজের অ্যাকাউন্টে টাকা জমা</small></div>
+    </button>
+    <button class="action-option" data-open="sheet-expense">
+      <span class="action-icon icon-expense">−</span>
+      <div><b>Additional Expense</b><small>অতিরিক্ত খরচ যোগ করো</small></div>
+    </button>
+    <button class="sheet-cancel" data-close>বাতিল</button>
+  </div>
+</div>
+
+<!-- ===== SEND MONEY SHEET ===== -->
+<div class="sheet-overlay" id="sheet-send-overlay">
+  <form class="sheet" id="form-send">
+    <div class="sheet-handle"></div>
+    <h3>Send Money</h3>
+    <input type="hidden" name="id" />
+    <label>গ্রাহকের নম্বর
+      <input required name="receiver" inputmode="numeric" placeholder="01XXXXXXXXX" />
+    </label>
+    <label>Amount
+      <input required name="amount" type="number" min="1" step="1" placeholder="0" />
+    </label>
+    <label>কোন অ্যাকাউন্ট থেকে
+      <select required name="accountId" id="send-account-select"></select>
+    </label>
+    <label>Fee
+      <input required name="fee" type="number" min="0" step="1" />
+    </label>
+    <label>তারিখ
+      <input required name="date" type="date" />
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">সেভ করো</button>
+    </div>
+    <button type="button" class="btn-delete" id="send-delete" hidden>এই এন্ট্রি ডিলিট করো</button>
+  </form>
+</div>
+
+<!-- ===== DEPOSIT SHEET ===== -->
+<div class="sheet-overlay" id="sheet-deposit-overlay">
+  <form class="sheet" id="form-deposit">
+    <div class="sheet-handle"></div>
+    <h3>Deposit</h3>
+    <input type="hidden" name="id" />
+    <label>কোন অ্যাকাউন্টে
+      <select required name="accountId" id="deposit-account-select"></select>
+    </label>
+    <label>Amount
+      <input required name="amount" type="number" min="1" step="1" placeholder="0" />
+    </label>
+    <label>তারিখ
+      <input required name="date" type="date" />
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">সেভ করো</button>
+    </div>
+    <button type="button" class="btn-delete" id="deposit-delete" hidden>এই এন্ট্রি ডিলিট করো</button>
+  </form>
+</div>
+
+<!-- ===== EXPENSE SHEET ===== -->
+<div class="sheet-overlay" id="sheet-expense-overlay">
+  <form class="sheet" id="form-expense">
+    <div class="sheet-handle"></div>
+    <h3>Additional Expense</h3>
+    <input type="hidden" name="id" />
+    <label>কোন অ্যাকাউন্ট থেকে
+      <select required name="accountId" id="expense-account-select"></select>
+    </label>
+    <label>Amount
+      <input required name="amount" type="number" min="1" step="1" placeholder="0" />
+    </label>
+    <label>নোট (ঐচ্ছিক)
+      <input name="note" type="text" placeholder="কী কারণে খরচ" />
+    </label>
+    <label>তারিখ
+      <input required name="date" type="date" />
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">সেভ করো</button>
+    </div>
+    <button type="button" class="btn-delete" id="expense-delete" hidden>এই এন্ট্রি ডিলিট করো</button>
+  </form>
+</div>
+
+<!-- ===== ADD PROFIT SHEET ===== -->
+<div class="sheet-overlay" id="sheet-add-profit-overlay">
+  <form class="sheet" id="form-profit">
+    <div class="sheet-handle"></div>
+    <h3>অতিরিক্ত লাভ যোগ করো</h3>
+    <input type="hidden" name="id" />
+    <label>Amount
+      <input required name="amount" type="number" min="1" step="1" placeholder="0" />
+    </label>
+    <label>নোট (ঐচ্ছিক)
+      <input name="note" type="text" placeholder="কোথা থেকে আয়" />
+    </label>
+    <label>তারিখ
+      <input required name="date" type="date" />
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">সেভ করো</button>
+    </div>
+    <button type="button" class="btn-delete" id="profit-delete" hidden>এই এন্ট্রি ডিলিট করো</button>
+  </form>
+</div>
+
+<!-- ===== ADD ACCOUNT SHEET ===== -->
+<div class="sheet-overlay" id="sheet-add-account-overlay">
+  <form class="sheet" id="form-account">
+    <div class="sheet-handle"></div>
+    <h3>নতুন অ্যাকাউন্ট</h3>
+    <label>নম্বর
+      <input required name="number" inputmode="numeric" placeholder="01XXXXXXXXX" />
+    </label>
+    <label>প্রোভাইডার
+      <div class="seg-control">
+        <button type="button" class="seg-btn active" data-value="bkash">bKash</button>
+        <button type="button" class="seg-btn" data-value="nagad">Nagad</button>
+      </div>
+      <input type="hidden" name="provider" value="bkash" />
+    </label>
+    <label>শুরুর ব্যালেন্স (ঐচ্ছিক)
+      <input name="opening" type="number" min="0" step="1" placeholder="0" />
+    </label>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">যোগ করো</button>
+    </div>
+  </form>
+</div>
+
+<!-- ===== ACCOUNT DETAIL SHEET ===== -->
+<div class="sheet-overlay" id="sheet-account-detail-overlay">
+  <div class="sheet" id="account-detail-sheet">
+    <div class="sheet-handle"></div>
+  </div>
+</div>
+
+<!-- ===== CHANGE PIN SHEET ===== -->
+<div class="sheet-overlay" id="sheet-change-pin-overlay">
+  <form class="sheet" id="form-change-pin">
+    <div class="sheet-handle"></div>
+    <h3>PIN পরিবর্তন করো</h3>
+    <label>বর্তমান PIN
+      <input required id="oldPinInput" type="password" inputmode="numeric" maxlength="6" autocomplete="off" />
+    </label>
+    <label>নতুন PIN
+      <input required id="newPinInput" type="password" inputmode="numeric" maxlength="6" autocomplete="off" />
+    </label>
+    <label>নতুন PIN আবার লিখো
+      <input required id="newPinConfirm" type="password" inputmode="numeric" maxlength="6" autocomplete="off" />
+    </label>
+    <div class="lock-error" id="changePinError"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn-ghost" data-close>বাতিল</button>
+      <button type="submit" class="btn-primary">পরিবর্তন করো</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+
+<!-- ==========================================================
+     এখানে তোমার Supabase URL আর Key বসাও (নিচে ইনস্ট্রাকশন আছে)
+     ========================================================== -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = "https://ecnraarpfofconomfmzk.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_zQkCD9w_yUG6LJ_3WOjPYg_duzjkTwW";
+const sb = (SUPABASE_URL.startsWith("YOUR_")) ? undefined : supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+<script>
+/* ============================================================
+   হিসাব খাতা — app logic (Supabase backend + PIN lock)
+
+   Data lives in one Postgres row: table "khata_data", id = "main"
+   columns: id text, accounts jsonb, entries jsonb, pin_hash text
+   See README.md for the SQL + RLS setup.
+   ============================================================ */
+
+const ROW_ID = "main";
+const DEFAULT_FEE = { bkash: 4, nagad: 5 };
+const UNLOCK_KEY = "khata-unlocked";
+
+/* ---------------- local mirror of remote state ---------------- */
+let state = { accounts: [], entries: [] };
+let pinHash = null;
+let rowExists = false;
+
+function uid(){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function monthKey(dateStr){ return dateStr.slice(0,7); }
+function fmtMoney(n){ return Math.round(n).toLocaleString("en-US"); }
+function fmtMonthLabel(key){
+  const [y,m] = key.split("-").map(Number);
+  const names = ["জানুয়ারি","ফেব্রুয়ারি","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর"];
+  return `${names[m-1]} ${y}`;
+}
+
+async function sha256(text){
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+/* ============================================================
+   PIN LOCK FLOW
+   ============================================================ */
+
+const lockScreen = document.getElementById("lockScreen");
+const lockLoading = document.getElementById("lockLoading");
+const formSetPin = document.getElementById("form-set-pin");
+const formEnterPin = document.getElementById("form-enter-pin");
+const lockConfigError = document.getElementById("lockConfigError");
+const appRoot = document.getElementById("app");
+
+function showLockLoading(msg){
+  lockLoading.hidden = false;
+  lockLoading.textContent = msg || "লোড হচ্ছে…";
+  formSetPin.hidden = true;
+  formEnterPin.hidden = true;
+  lockConfigError.hidden = true;
+}
+function showConfigError(){
+  lockLoading.hidden = true;
+  formSetPin.hidden = true;
+  formEnterPin.hidden = true;
+  lockConfigError.hidden = false;
+}
+function showSetPinForm(){
+  lockLoading.hidden = true;
+  lockConfigError.hidden = true;
+  formEnterPin.hidden = true;
+  formSetPin.hidden = false;
+}
+function showEnterPinForm(){
+  lockLoading.hidden = true;
+  lockConfigError.hidden = true;
+  formSetPin.hidden = true;
+  formEnterPin.hidden = false;
+}
+function unlockApp(){
+  lockScreen.style.display = "none";
+  appRoot.classList.remove("app-hidden");
+  sessionStorage.setItem(UNLOCK_KEY, "true");
+  setTodayDate();
+  renderAll();
+}
+function shakeLockCard(){
+  const card = document.querySelector(".lock-card");
+  card.classList.remove("shake");
+  void card.offsetWidth;
+  card.classList.add("shake");
+}
+
+formSetPin.addEventListener("submit", async (ev)=>{
+  ev.preventDefault();
+  const pin = document.getElementById("setPinInput").value.trim();
+  const confirmPin = document.getElementById("setPinConfirm").value.trim();
+  const errEl = document.getElementById("setPinError");
+  errEl.textContent = "";
+  if(pin.length < 4 || pin.length > 6){ errEl.textContent = "PIN ৪-৬ ডিজিট হতে হবে"; return; }
+  if(pin !== confirmPin){ errEl.textContent = "দুইটা PIN মিলছে না"; shakeLockCard(); return; }
+  const hash = await sha256(pin);
+  try{
+    const { error } = await sb.from("khata_data").upsert({
+      id: ROW_ID, accounts: [], entries: [], pin_hash: hash
+    });
+    if(error) throw error;
+    pinHash = hash;
+    state = { accounts: [], entries: [] };
+    unlockApp();
+  }catch(e){
+    console.error(e);
+    errEl.textContent = "সেভ করতে সমস্যা হয়েছে, আবার চেষ্টা করো (কানেকশন/config চেক করো)";
+  }
+});
+
+formEnterPin.addEventListener("submit", async (ev)=>{
+  ev.preventDefault();
+  const pin = document.getElementById("enterPinInput").value.trim();
+  const errEl = document.getElementById("enterPinError");
+  const hash = await sha256(pin);
+  if(hash === pinHash){
+    errEl.textContent = "";
+    unlockApp();
+  }else{
+    errEl.textContent = "ভুল PIN, আবার চেষ্টা করো";
+    shakeLockCard();
+    document.getElementById("enterPinInput").value = "";
+  }
+});
+
+document.getElementById("lockBtn").addEventListener("click", ()=>{
+  sessionStorage.removeItem(UNLOCK_KEY);
+  appRoot.classList.add("app-hidden");
+  lockScreen.style.display = "flex";
+  showEnterPinForm();
+  document.getElementById("enterPinInput").value = "";
+});
+
+/* Change PIN */
+document.getElementById("openChangePin").addEventListener("click", ()=>{
+  document.getElementById("form-change-pin").reset();
+  document.getElementById("changePinError").textContent = "";
+  document.getElementById("sheet-change-pin-overlay").classList.add("open");
+});
+
+document.getElementById("form-change-pin").addEventListener("submit", async (ev)=>{
+  ev.preventDefault();
+  const oldPin = document.getElementById("oldPinInput").value.trim();
+  const newPin = document.getElementById("newPinInput").value.trim();
+  const newConfirm = document.getElementById("newPinConfirm").value.trim();
+  const errEl = document.getElementById("changePinError");
+  const oldHash = await sha256(oldPin);
+  if(oldHash !== pinHash){ errEl.textContent = "বর্তমান PIN ভুল"; return; }
+  if(newPin.length < 4 || newPin.length > 6){ errEl.textContent = "নতুন PIN ৪-৬ ডিজিট হতে হবে"; return; }
+  if(newPin !== newConfirm){ errEl.textContent = "নতুন PIN দুইবার মিলছে না"; return; }
+  const newHash = await sha256(newPin);
+  try{
+    const { error } = await sb.from("khata_data").update({ pin_hash: newHash }).eq("id", ROW_ID);
+    if(error) throw error;
+    pinHash = newHash;
+    document.getElementById("sheet-change-pin-overlay").classList.remove("open");
+    showToast("PIN পরিবর্তন হয়েছে");
+  }catch(e){
+    console.error(e);
+    errEl.textContent = "সেভ করতে সমস্যা হয়েছে";
+  }
+});
+
+/* ============================================================
+   REMOTE DATA — load, save, realtime subscription
+   ============================================================ */
+
+async function saveRemote(){
+  try{
+    const { error } = await sb.from("khata_data")
+      .update({ accounts: state.accounts, entries: state.entries })
+      .eq("id", ROW_ID);
+    if(error) throw error;
+  }catch(e){
+    console.error("save failed", e);
+    showToast("সেভ করতে সমস্যা হয়েছে — ইন্টারনেট চেক করো");
+  }
+}
+
+function applyRemoteRow(row){
+  state.accounts = row.accounts || [];
+  state.entries = row.entries || [];
+  pinHash = row.pin_hash || null;
+}
+
+async function initApp(){
+  if(typeof sb === "undefined" || !SUPABASE_URL || SUPABASE_URL.startsWith("YOUR_")){
+    showConfigError();
+    return;
+  }
+  showLockLoading("সংযোগ করা হচ্ছে…");
+  try{
+    const { data: row, error } = await sb.from("khata_data").select("*").eq("id", ROW_ID).maybeSingle();
+    if(error) throw error;
+
+    if(!row){
+      rowExists = false;
+      showSetPinForm();
+    }else{
+      rowExists = true;
+      applyRemoteRow(row);
+      if(sessionStorage.getItem(UNLOCK_KEY) === "true"){
+        unlockApp();
+      }else{
+        showEnterPinForm();
+      }
+    }
+
+    sb.channel("khata_data_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "khata_data", filter: `id=eq.${ROW_ID}` },
+        (payload)=>{
+          if(payload.new){
+            applyRemoteRow(payload.new);
+            if(!appRoot.classList.contains("app-hidden")) renderAll();
+          }
+        })
+      .subscribe();
+
+  }catch(e){
+    console.error(e);
+    showConfigError();
+  }
+}
+
+/* ---------------- derived calculations ---------------- */
+
+function accountBalance(accountId){
+  const acc = state.accounts.find(a=>a.id===accountId);
+  if(!acc) return 0;
+  let bal = Number(acc.opening)||0;
+  for(const e of state.entries){
+    if(e.type==="deposit" && e.accountId===accountId) bal += Number(e.amount);
+    if(e.type==="send" && e.accountId===accountId) bal -= (Number(e.amount)+Number(e.fee));
+    if(e.type==="expense" && e.accountId===accountId) bal -= Number(e.amount);
+  }
+  return bal;
+}
+
+function totalsByProvider(){
+  let bkash=0, nagad=0;
+  for(const acc of state.accounts){
+    const bal = accountBalance(acc.id);
+    if(acc.provider==="bkash") bkash += bal; else nagad += bal;
+  }
+  return { bkash, nagad, grand: bkash+nagad };
+}
+
+function availableMonths(){
+  const set = new Set();
+  for(const e of state.entries) set.add(monthKey(e.date));
+  set.add(monthKey(todayISO()));
+  return Array.from(set).sort().reverse();
+}
+
+function monthlyProfit(monthKeyStr){
+  let deposits=0, fees=0, manual=0;
+  for(const e of state.entries){
+    if(monthKey(e.date)!==monthKeyStr) continue;
+    if(e.type==="deposit") deposits += Number(e.amount);
+    if(e.type==="send") fees += Number(e.fee);
+    if(e.type==="profit") manual += Number(e.amount);
+  }
+  const auto = (deposits/1000)*5;
+  const net = auto - fees + manual;
+  return { deposits, auto, fees, manual, net };
+}
+
+/* ---------------- rendering ---------------- */
+
+function renderAll(){
+  renderDashboard();
+  renderHistory();
+  renderProfit();
+  renderAccountsView();
+  populateAccountSelects();
+}
+
+function accountLabel(acc){
+  return `${acc.number} (${acc.provider==="bkash"?"bKash":"Nagad"})`;
+}
+
+function renderDashboard(){
+  const t = totalsByProvider();
+  animateCount(document.getElementById("grandTotal"), t.grand);
+  document.getElementById("totalBkash").textContent = "৳"+fmtMoney(t.bkash);
+  document.getElementById("totalNagad").textContent = "৳"+fmtMoney(t.nagad);
+
+  const list = document.getElementById("accountsList");
+  list.innerHTML = "";
+  if(state.accounts.length===0){
+    list.innerHTML = `<div class="empty-state">এখনো কোনো অ্যাকাউন্ট যোগ করা হয়নি। "+ নতুন অ্যাকাউন্ট" দিয়ে শুরু করো।</div>`;
+  }
+  for(const acc of state.accounts) list.appendChild(accountCard(acc));
+
+  const recent = [...state.entries].sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id)).slice(0,5);
+  const recentList = document.getElementById("recentList");
+  recentList.innerHTML = "";
+  if(recent.length===0) recentList.innerHTML = `<div class="empty-state">কোনো কার্যক্রম নেই এখনো</div>`;
+  for(const e of recent) recentList.appendChild(entryRow(e));
+}
+
+function accountCard(acc){
+  const div = document.createElement("div");
+  div.className = "account-card";
+  const bal = accountBalance(acc.id);
+  div.innerHTML = `
+    <div class="account-left">
+      <div class="provider-badge ${acc.provider}">${acc.provider==="bkash"?"বিK":"নগদ"}</div>
+      <div>
+        <div class="account-number">${acc.number}</div>
+        <div class="account-provider">${acc.provider==="bkash"?"bKash":"Nagad"}</div>
+      </div>
+    </div>
+    <div class="account-balance">৳${fmtMoney(bal)}</div>
+  `;
+  div.addEventListener("click", ()=> openAccountDetail(acc.id));
+  return div;
+}
+
+const ENTRY_META = {
+  send:    { icon:"↗", cls:"send",    title: e => `Send Money · ${e.receiver}` },
+  deposit: { icon:"+", cls:"deposit", title: () => "Deposit" },
+  expense: { icon:"−", cls:"expense", title: e => e.note ? `খরচ · ${e.note}` : "Additional Expense" },
+  profit:  { icon:"৳", cls:"profit",  title: e => e.note ? `অতিরিক্ত লাভ · ${e.note}` : "অতিরিক্ত লাভ" },
+};
+
+function entryRow(e){
+  const div = document.createElement("div");
+  div.className = "entry-row";
+  const meta = ENTRY_META[e.type];
+  const acc = e.accountId ? state.accounts.find(a=>a.id===e.accountId) : null;
+  let sub = e.date;
+  if(acc) sub += ` · ${acc.number}`;
+
+  let amountText = "৳"+fmtMoney(e.amount);
+  let amountCls = "";
+  if(e.type==="send"){ amountText = "−৳"+fmtMoney(Number(e.amount)+Number(e.fee)); amountCls="neg"; }
+  if(e.type==="expense"){ amountText = "−৳"+fmtMoney(e.amount); amountCls="neg"; }
+  if(e.type==="deposit"){ amountText = "+৳"+fmtMoney(e.amount); amountCls="pos"; }
+  if(e.type==="profit"){ amountText = "+৳"+fmtMoney(e.amount); amountCls="pos"; }
+
+  div.innerHTML = `
+    <div class="entry-icon ${meta.cls}">${meta.icon}</div>
+    <div class="entry-mid">
+      <div class="entry-title">${meta.title(e)}</div>
+      <div class="entry-sub">${sub}</div>
+    </div>
+    <div class="entry-amount ${amountCls}">${amountText}</div>
+  `;
+  div.addEventListener("click", ()=> openEditEntry(e));
+  return div;
+}
+
+let historyFilter = "all";
+
+function renderHistory(){
+  const monthSel = document.getElementById("historyMonth");
+  const months = availableMonths();
+  const prevVal = monthSel.value;
+  monthSel.innerHTML = `<option value="all">সব মাস</option>` + months.map(m=>`<option value="${m}">${fmtMonthLabel(m)}</option>`).join("");
+  monthSel.value = months.includes(prevVal) ? prevVal : "all";
+
+  let list = [...state.entries].sort((a,b)=> b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  if(historyFilter!=="all") list = list.filter(e=>e.type===historyFilter);
+  if(monthSel.value!=="all") list = list.filter(e=>monthKey(e.date)===monthSel.value);
+
+  const container = document.getElementById("historyList");
+  const empty = document.getElementById("historyEmpty");
+  container.innerHTML = "";
+  empty.hidden = list.length !== 0;
+  for(const e of list) container.appendChild(entryRow(e));
+}
+
+let currentProfitMonth = todayISO().slice(0,7);
+
+function renderProfit(){
+  const monthSel = document.getElementById("profitMonth");
+  const months = availableMonths();
+  monthSel.innerHTML = months.map(m=>`<option value="${m}">${fmtMonthLabel(m)}</option>`).join("");
+  if(!months.includes(currentProfitMonth)) currentProfitMonth = months[0];
+  monthSel.value = currentProfitMonth;
+
+  const p = monthlyProfit(currentProfitMonth);
+  document.getElementById("profitAuto").textContent = "৳"+fmtMoney(p.auto);
+  document.getElementById("profitFee").textContent = "− ৳"+fmtMoney(p.fees);
+  document.getElementById("profitManual").textContent = "+ ৳"+fmtMoney(p.manual);
+  document.getElementById("profitNet").textContent = "৳"+fmtMoney(p.net);
+
+  const depList = document.getElementById("profitDepositList");
+  depList.innerHTML = "";
+  const deps = state.entries.filter(e=>e.type==="deposit" && monthKey(e.date)===currentProfitMonth)
+                             .sort((a,b)=>b.date.localeCompare(a.date));
+  if(deps.length===0){ depList.innerHTML = `<div class="empty-state">এই মাসে কোনো ডিপোজিট নেই</div>`; }
+  for(const e of deps) depList.appendChild(entryRow(e));
+}
+
+function renderAccountsView(){
+  const list = document.getElementById("accountsFullList");
+  list.innerHTML = "";
+  if(state.accounts.length===0){
+    list.innerHTML = `<div class="empty-state">এখনো কোনো অ্যাকাউন্ট যোগ করা হয়নি।</div>`;
+  }
+  for(const acc of state.accounts) list.appendChild(accountCard(acc));
+}
+
+function populateAccountSelects(){
+  const opts = state.accounts.map(a=>`<option value="${a.id}">${accountLabel(a)}</option>`).join("");
+  for(const id of ["send-account-select","deposit-account-select","expense-account-select"]){
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = opts || `<option value="">কোনো অ্যাকাউন্ট নেই</option>`;
+    if(Array.from(sel.options).some(o=>o.value===prev)) sel.value = prev;
+  }
+}
+
+function animateCount(el, target){
+  const from = Number(el.dataset.val || 0);
+  const to = Math.round(target);
+  el.dataset.val = to;
+  const duration = 500;
+  const start = performance.now();
+  function tick(now){
+    const p = Math.min(1, (now-start)/duration);
+    const eased = 1 - Math.pow(1-p, 3);
+    el.textContent = fmtMoney(Math.round(from + (to-from)*eased));
+    if(p<1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------------- toast ---------------- */
+let toastTimer;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2200);
+}
+
+/* ---------------- navigation ---------------- */
+function switchView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.toggle("active", n.dataset.nav===name));
+}
+document.querySelectorAll("[data-nav]").forEach(btn=>{
+  btn.addEventListener("click", ()=> switchView(btn.dataset.nav));
+});
+
+/* ---------------- sheets open/close ---------------- */
+function closeAllSheets(){
+  document.querySelectorAll(".sheet-overlay").forEach(o=>o.classList.remove("open"));
+}
+document.querySelectorAll("[data-open]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    closeAllSheets();
+    const target = btn.dataset.open;
+    document.getElementById(target+"-overlay").classList.add("open");
+    if(target==="sheet-send") prepSendForm();
+    if(target==="sheet-deposit") prepDepositForm();
+    if(target==="sheet-expense") prepExpenseForm();
+    if(target==="sheet-add-profit") prepProfitForm();
+  });
+});
+document.querySelectorAll("[data-close]").forEach(btn=>{
+  btn.addEventListener("click", closeAllSheets);
+});
+document.querySelectorAll(".sheet-overlay").forEach(overlay=>{
+  overlay.addEventListener("click", (ev)=>{ if(ev.target===overlay) closeAllSheets(); });
+});
+document.getElementById("fab").addEventListener("click", ()=>{
+  closeAllSheets();
+  document.getElementById("actionSheetOverlay").classList.add("open");
+});
+
+/* ---------------- form prep (defaults, edit-mode) ---------------- */
+
+function prepSendForm(editEntry){
+  const form = document.getElementById("form-send");
+  form.reset();
+  form.querySelector('[name="date"]').value = editEntry ? editEntry.date : todayISO();
+  form.querySelector('[name="id"]').value = editEntry ? editEntry.id : "";
+  document.getElementById("send-delete").hidden = !editEntry;
+  const feeInput = document.querySelector('#form-send [name="fee"]');
+  feeInput.dataset.userEdited = "";
+  if(editEntry){
+    form.querySelector('[name="receiver"]').value = editEntry.receiver;
+    form.querySelector('[name="amount"]').value = editEntry.amount;
+    form.querySelector('[name="accountId"]').value = editEntry.accountId;
+    feeInput.value = editEntry.fee;
+    feeInput.dataset.userEdited = "1";
+  } else {
+    updateFeeDefault();
+  }
+}
+function updateFeeDefault(){
+  const sel = document.getElementById("send-account-select");
+  const acc = state.accounts.find(a=>a.id===sel.value);
+  const feeInput = document.querySelector('#form-send [name="fee"]');
+  if(acc && !feeInput.dataset.userEdited){ feeInput.value = DEFAULT_FEE[acc.provider]; }
+}
+document.getElementById("send-account-select").addEventListener("change", updateFeeDefault);
+document.querySelector('#form-send [name="fee"]').addEventListener("input", function(){ this.dataset.userEdited = "1"; });
+
+function prepDepositForm(editEntry){
+  const form = document.getElementById("form-deposit");
+  form.reset();
+  form.querySelector('[name="date"]').value = editEntry ? editEntry.date : todayISO();
+  form.querySelector('[name="id"]').value = editEntry ? editEntry.id : "";
+  document.getElementById("deposit-delete").hidden = !editEntry;
+  if(editEntry){
+    form.querySelector('[name="accountId"]').value = editEntry.accountId;
+    form.querySelector('[name="amount"]').value = editEntry.amount;
+  }
+}
+function prepExpenseForm(editEntry){
+  const form = document.getElementById("form-expense");
+  form.reset();
+  form.querySelector('[name="date"]').value = editEntry ? editEntry.date : todayISO();
+  form.querySelector('[name="id"]').value = editEntry ? editEntry.id : "";
+  document.getElementById("expense-delete").hidden = !editEntry;
+  if(editEntry){
+    form.querySelector('[name="accountId"]').value = editEntry.accountId;
+    form.querySelector('[name="amount"]').value = editEntry.amount;
+    form.querySelector('[name="note"]').value = editEntry.note || "";
+  }
+}
+function prepProfitForm(editEntry){
+  const form = document.getElementById("form-profit");
+  form.reset();
+  form.querySelector('[name="date"]').value = editEntry ? editEntry.date : todayISO();
+  form.querySelector('[name="id"]').value = editEntry ? editEntry.id : "";
+  document.getElementById("profit-delete").hidden = !editEntry;
+  if(editEntry){
+    form.querySelector('[name="amount"]').value = editEntry.amount;
+    form.querySelector('[name="note"]').value = editEntry.note || "";
+  }
+}
+function openEditEntry(e){
+  closeAllSheets();
+  if(e.type==="send"){ prepSendForm(e); document.getElementById("sheet-send-overlay").classList.add("open"); }
+  if(e.type==="deposit"){ prepDepositForm(e); document.getElementById("sheet-deposit-overlay").classList.add("open"); }
+  if(e.type==="expense"){ prepExpenseForm(e); document.getElementById("sheet-expense-overlay").classList.add("open"); }
+  if(e.type==="profit"){ prepProfitForm(e); document.getElementById("sheet-add-profit-overlay").classList.add("open"); }
+}
+
+/* ---------------- form submit handlers ---------------- */
+
+document.getElementById("form-send").addEventListener("submit", async function(ev){
+  ev.preventDefault();
+  const fd = new FormData(this);
+  const id = fd.get("id") || uid();
+  upsertEntry({
+    id, type:"send",
+    date: fd.get("date"),
+    accountId: fd.get("accountId"),
+    receiver: fd.get("receiver").trim(),
+    amount: Number(fd.get("amount")),
+    fee: Number(fd.get("fee")),
+  });
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("Send Money সেভ হয়েছে");
+});
+
+document.getElementById("form-deposit").addEventListener("submit", async function(ev){
+  ev.preventDefault();
+  const fd = new FormData(this);
+  const id = fd.get("id") || uid();
+  upsertEntry({ id, type:"deposit", date: fd.get("date"), accountId: fd.get("accountId"), amount: Number(fd.get("amount")) });
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("Deposit সেভ হয়েছে");
+});
+
+document.getElementById("form-expense").addEventListener("submit", async function(ev){
+  ev.preventDefault();
+  const fd = new FormData(this);
+  const id = fd.get("id") || uid();
+  upsertEntry({ id, type:"expense", date: fd.get("date"), accountId: fd.get("accountId"), amount: Number(fd.get("amount")), note: fd.get("note").trim() });
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("Expense সেভ হয়েছে");
+});
+
+document.getElementById("form-profit").addEventListener("submit", async function(ev){
+  ev.preventDefault();
+  const fd = new FormData(this);
+  const id = fd.get("id") || uid();
+  upsertEntry({ id, type:"profit", date: fd.get("date"), amount: Number(fd.get("amount")), note: fd.get("note").trim() });
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("লাভ যোগ হয়েছে");
+});
+
+document.getElementById("form-account").addEventListener("submit", async function(ev){
+  ev.preventDefault();
+  const fd = new FormData(this);
+  state.accounts.push({
+    id: uid(),
+    number: fd.get("number").trim(),
+    provider: fd.get("provider"),
+    opening: Number(fd.get("opening"))||0,
+  });
+  this.reset();
+  document.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active", b.dataset.value==="bkash"));
+  document.querySelector('#form-account [name="provider"]').value = "bkash";
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("নতুন অ্যাকাউন্ট যোগ হয়েছে");
+});
+
+document.querySelectorAll(".seg-btn").forEach(btn=>{
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".seg-btn").forEach(b=>b.classList.remove("active"));
+    this.classList.add("active");
+    document.querySelector('#form-account [name="provider"]').value = this.dataset.value;
+  });
+});
+
+function upsertEntry(entry){
+  const idx = state.entries.findIndex(e=>e.id===entry.id);
+  if(idx>=0) state.entries[idx] = entry; else state.entries.push(entry);
+}
+
+async function deleteEntry(id){
+  state.entries = state.entries.filter(e=>e.id!==id);
+  closeAllSheets();
+  renderAll();
+  await saveRemote();
+  showToast("এন্ট্রি ডিলিট হয়েছে");
+}
+
+document.getElementById("send-delete").addEventListener("click", function(){
+  const id = document.querySelector('#form-send [name="id"]').value;
+  if(id && confirm("এই এন্ট্রি ডিলিট করবে?")) deleteEntry(id);
+});
+document.getElementById("deposit-delete").addEventListener("click", function(){
+  const id = document.querySelector('#form-deposit [name="id"]').value;
+  if(id && confirm("এই এন্ট্রি ডিলিট করবে?")) deleteEntry(id);
+});
+document.getElementById("expense-delete").addEventListener("click", function(){
+  const id = document.querySelector('#form-expense [name="id"]').value;
+  if(id && confirm("এই এন্ট্রি ডিলিট করবে?")) deleteEntry(id);
+});
+document.getElementById("profit-delete").addEventListener("click", function(){
+  const id = document.querySelector('#form-profit [name="id"]').value;
+  if(id && confirm("এই এন্ট্রি ডিলিট করবে?")) deleteEntry(id);
+});
+
+/* ---------------- history filters ---------------- */
+document.querySelectorAll("#filterChips .chip").forEach(chip=>{
+  chip.addEventListener("click", function(){
+    document.querySelectorAll("#filterChips .chip").forEach(c=>c.classList.remove("active"));
+    this.classList.add("active");
+    historyFilter = this.dataset.filter;
+    renderHistory();
+  });
+});
+document.getElementById("historyMonth").addEventListener("change", renderHistory);
+document.getElementById("profitMonth").addEventListener("change", function(){
+  currentProfitMonth = this.value;
+  renderProfit();
+});
+
+/* ---------------- account detail sheet ---------------- */
+function openAccountDetail(accountId){
+  const acc = state.accounts.find(a=>a.id===accountId);
+  if(!acc) return;
+  const bal = accountBalance(accountId);
+  const sent = state.entries.filter(e=>e.type==="send" && e.accountId===accountId)
+                    .reduce((s,e)=>s+Number(e.amount)+Number(e.fee),0);
+  const deposited = state.entries.filter(e=>e.type==="deposit" && e.accountId===accountId)
+                    .reduce((s,e)=>s+Number(e.amount),0);
+  const accEntries = state.entries.filter(e=>e.accountId===accountId).sort((a,b)=>b.date.localeCompare(a.date));
+
+  const sheet = document.getElementById("account-detail-sheet");
+  sheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="detail-header">
+      <div class="provider-badge ${acc.provider}">${acc.provider==="bkash"?"বিK":"নগদ"}</div>
+      <div>
+        <h3 style="margin:0;">${acc.number}</h3>
+        <div class="account-provider">${acc.provider==="bkash"?"bKash":"Nagad"} অ্যাকাউন্ট</div>
+      </div>
+    </div>
+    <div class="detail-balance">৳${fmtMoney(bal)}</div>
+    <div class="detail-stats">
+      <div class="detail-stat"><span>মোট ডিপোজিট</span><b>৳${fmtMoney(deposited + (Number(acc.opening)||0))}</b></div>
+      <div class="detail-stat"><span>মোট পাঠানো</span><b>৳${fmtMoney(sent)}</b></div>
+    </div>
+    <div class="section-row"><h2>এই অ্যাকাউন্টের হিস্টোরি</h2></div>
+    <div class="entries-list" id="account-detail-entries"></div>
+  `;
+  const list = sheet.querySelector("#account-detail-entries");
+  if(accEntries.length===0) list.innerHTML = `<div class="empty-state">কোনো এন্ট্রি নেই</div>`;
+  for(const e of accEntries) list.appendChild(entryRow(e));
+
+  closeAllSheets();
+  document.getElementById("sheet-account-detail-overlay").classList.add("open");
+}
+
+/* ---------------- misc ---------------- */
+function setTodayDate(){
+  const d = new Date();
+  const days = ["রবি","সোম","মঙ্গল","বুধ","বৃহস্পতি","শুক্র","শনি"];
+  const months = ["জানু","ফেব্রু","মার্চ","এপ্রি","মে","জুন","জুলাই","আগ","সেপ্ট","অক্ট","নভে","ডিসে"];
+  document.getElementById("todayDate").textContent = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+}
+document.getElementById("send-account-select").addEventListener("focus", updateFeeDefault);
+
+/* ---------------- boot ---------------- */
+initApp();
+
+</script>
+</body>
+</html>
